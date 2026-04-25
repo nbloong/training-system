@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BBE Training Tracker - Audit Ready</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body>
+<header>
+  <div><h1>BBE Staff Training & Competency Tracker</h1><p>Audit-ready cloud version with expiry / no-expiry logic, QR attendance and evidence links.</p></div>
+  <div><button onclick="reloadAll()">Refresh</button><button onclick="seedRules()">Load SG/WSH Default Rules</button></div>
+</header>
+<main>
+<section class="metrics">
+  <div><span>Total Staff</span><strong id="mStaff">0</strong></div>
+  <div><span>Training Records</span><strong id="mTraining">0</strong></div>
+  <div><span>Expired</span><strong id="mExpired" class="dangerText">0</strong></div>
+  <div><span>Expiring ≤ 90 Days</span><strong id="mExpiring" class="warnText">0</strong></div>
+  <div><span>No Expiry</span><strong id="mNoExpiry" class="greenText">0</strong></div>
+</section>
+
+<nav class="tabs">
+  <button class="active" data-tab="lookup">Lookup</button>
+  <button data-tab="staff">Staff</button>
+  <button data-tab="training">Training</button>
+  <button data-tab="attendance">Mass Attendance</button>
+  <button data-tab="certs">Certificates / Evidence</button>
+  <button data-tab="reports">Reports</button>
+  <button data-tab="cards">QR Cards</button>
+  <button data-tab="rules">Rules</button>
+</nav>
+
+<section id="lookup" class="tab active panel">
+<h2>Deployment Check by Staff ID</h2>
+<div class="row"><input id="lookupId" placeholder="Staff ID e.g. BBE001"><button onclick="lookupStaff()">Check</button></div>
+<div id="lookupResult"></div>
+</section>
+
+<section id="staff" class="tab">
+<div class="grid2">
+<div class="panel">
+<h2>Add / Update Staff</h2>
+<label>Staff ID <input id="staffId" placeholder="BBE001"></label>
+<label>Name <input id="staffName"></label>
+<label>Company <input id="staffCompany" value="Bryan Boiler Engineering Pte Ltd"></label>
+<label>Trade / Designation <input id="staffTrade"></label>
+<label>Site / Department <input id="staffDept"></label>
+<label>Status <select id="staffStatus"><option>Active</option><option>Inactive</option><option>Suspended</option><option>Resigned</option></select></label>
+<label>Staff Photo Link <input id="staffPhotoUrl" placeholder="Optional Google Drive / image URL"></label>
+<button onclick="saveStaff()">Save Staff</button><button class="secondary" onclick="clearStaffForm()">Clear</button>
+</div>
+<div class="panel"><h2>Staff List</h2><input id="staffSearch" placeholder="Search..." oninput="renderStaff()"><div id="staffList"></div></div>
+</div>
+</section>
+
+<section id="training" class="tab">
+<div class="grid2">
+<div class="panel">
+<h2>Add / Update Training Record</h2>
+<input type="hidden" id="trainingDocId">
+<label>Staff ID <input id="trStaffId" placeholder="BBE001"></label>
+<label>Course <input id="trCourse" list="courseList" onchange="applyRuleToTraining()"></label><datalist id="courseList"></datalist>
+<div class="notice"><strong>Expiry Control:</strong><label class="inlineCheck"><input type="checkbox" id="trNoExpiry" onchange="toggleTrainingNoExpiry()"> No Expiry / No periodic renewal required</label><p id="trRuleHint" class="hint"></p></div>
+<label>Provider <input id="trProvider"></label>
+<label>Certificate / Record No. <input id="trCertNo"></label>
+<label>Attended Date <input id="trAttended" type="date" onchange="applyRuleToTraining()"></label>
+<label>Expiry Date <input id="trExpiry" type="date"></label>
+<label>Authorised Machines <input id="trMachines" placeholder="Forklift, Welding Set"></label>
+<label>High-Risk Job Clearance <input id="trHighRisk" placeholder="WAH, Confined Space, Hot Work"></label>
+<label>Certificate Link <input id="trCertLink" placeholder="Paste Google Drive / OneDrive certificate link"></label>
+<label>Card Link <input id="trCardLink" placeholder="Paste Google Drive / OneDrive card link"></label>
+<label>Remarks <textarea id="trRemarks" placeholder="Deployment condition / audit note"></textarea></label>
+<button onclick="saveTraining()">Save Training</button><button class="secondary" onclick="clearTrainingForm()">Clear</button>
+</div>
+<div class="panel">
+<h2>Training Records</h2>
+<input id="trainingSearch" placeholder="Search records..." oninput="renderTraining()">
+<div class="filterRow"><button onclick="setTrainingFilter('all')">All</button><button onclick="setTrainingFilter('expired')">Expired</button><button onclick="setTrainingFilter('expiring')">Expiring</button><button onclick="setTrainingFilter('noexpiry')">No Expiry</button><button onclick="setTrainingFilter('missingEvidence')">Missing Evidence</button></div>
+<div class="tableWrap"><table><thead><tr><th>Staff</th><th>Training</th><th>Status</th><th>Evidence</th><th>Action</th></tr></thead><tbody id="trainingTable"></tbody></table></div>
+</div>
+</div>
+</section>
+
+<section id="attendance" class="tab">
+<div class="grid2">
+<div class="panel">
+<h2>Create Mass Training Session</h2>
+<label>Course <input id="sessCourse" list="courseList" onchange="applyRuleToSession()"></label>
+<div class="notice"><strong>Expiry Control:</strong><label class="inlineCheck"><input type="checkbox" id="sessNoExpiry" onchange="toggleSessionNoExpiry()"> No Expiry / Internal record only</label><p id="sessRuleHint" class="hint"></p></div>
+<label>Training Date <input id="sessDate" type="date" onchange="applyRuleToSession()"></label>
+<label>Expiry Date <input id="sessExpiry" type="date"></label>
+<label>Provider / Trainer <input id="sessProvider"></label>
+<label>Machines <input id="sessMachines"></label>
+<label>High-Risk Jobs <input id="sessHighRisk"></label>
+<label>Session Evidence Link <input id="sessEvidenceLink" placeholder="Optional attendance sheet / group training evidence link"></label>
+<label>Remarks <textarea id="sessRemarks">Mass training attendance captured by Staff ID QR scan.</textarea></label>
+<button onclick="createSession()">Create / Replace Active Session</button>
+</div>
+<div class="panel">
+<h2>Scan Attendance</h2><div id="activeSessionBox"></div>
+<div class="row"><input id="scanId" placeholder="Scan or type Staff ID"><button onclick="addManualAttendance()">Add</button></div>
+<button onclick="startScanner()">Start Camera Scanner</button><button class="secondary" onclick="stopScanner()">Stop Scanner</button>
+<div id="qr-reader"></div>
+</div>
+</div>
+<div class="panel"><h2>Attendance List</h2><button onclick="finalizeSession()">Finalize Session → Create Training Records</button><button class="secondary" onclick="clearAttendance()">Clear Attendance</button><div id="attendanceList"></div></div>
+</section>
+
+<section id="certs" class="tab panel">
+<h2>Certificates / Evidence Management</h2>
+<div class="grid2">
+<div><h3>A. Individual Certificate / Card Link</h3>
+<label>Session <select id="certSession" onchange="renderCertRecords()"></select></label>
+<label>Worker Training Record <select id="certRecord"></select></label>
+<label>Certificate Link <input id="indCertLink" placeholder="Paste certificate link"></label>
+<label>Card Link <input id="indCardLink" placeholder="Paste card link"></label>
+<button onclick="uploadIndividualEvidence()">Save Individual Evidence Link</button></div>
+<div><h3>B. Session Evidence Link</h3>
+<label>Session <select id="evidenceSession"></select></label>
+<label>Session Evidence Link <input id="sessionEvidenceLink" placeholder="Paste attendance sheet / group record link"></label>
+<button onclick="uploadSessionEvidence()">Save Session Evidence Link</button>
+<p class="hint">Use for toolbox/internal training where one signed attendance sheet or group record is acceptable.</p></div>
+</div>
+<h3>Evidence Status by Session</h3><div id="certStatus"></div>
+</section>
+
+<section id="reports" class="tab panel">
+<h2>Audit Reports</h2>
+<div class="filterRow"><button onclick="renderReports('expired')">Expired Only</button><button onclick="renderReports('expiring')">Expiring Soon</button><button onclick="renderReports('noexpiry')">No Expiry Records</button><button onclick="renderReports('missingEvidence')">Missing Evidence</button><button onclick="exportTrainingCSV()">Export CSV</button><button onclick="window.print()">Print</button></div>
+<div id="reportBox"></div>
+</section>
+
+<section id="cards" class="tab panel"><h2>Printable Staff QR Cards</h2><button onclick="window.print()">Print</button><div id="qrCards" class="qrGrid"></div></section>
+
+<section id="rules" class="tab panel">
+<h2>Validity Rules</h2><p class="hint">Use <strong>No Expiry</strong> for induction, toolbox briefing, internal awareness training, one-time orientation, or any course where no periodic renewal is required.</p>
+<label>Course <input id="ruleCourse" placeholder="Example: Site Induction"></label>
+<label>Rule Type <select id="ruleType" onchange="toggleRuleYears()"><option value="expiry">Has Expiry / Refresher Required</option><option value="noexpiry">No Expiry / Record Only</option></select></label>
+<label>Validity Years <input id="ruleYears" type="number" step="0.5" placeholder="3"></label>
+<label>Reference / Note <textarea id="ruleNote" placeholder="Example: Internal toolbox record; no expiry date required."></textarea></label>
+<button onclick="saveRule()">Save Rule</button>
+<div class="tableWrap"><table><thead><tr><th>Course</th><th>Type</th><th>Years</th><th>Note</th><th>Action</th></tr></thead><tbody id="rulesTable"></tbody></table></div>
+</section>
+</main>
+<dialog id="viewer"><div class="dialogHead"><h3 id="viewerTitle"></h3><button onclick="closeViewer()">Close</button></div><div id="viewerBody"></div></dialog>
+<script type="module" src="app.js"></script>
+</body>
+</html>
