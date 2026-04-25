@@ -1,4 +1,3 @@
-// Paste Firebase Web App config here.
 export const firebaseConfig = {
   apiKey: "AIzaSyAgG-gh5Vop6VjSmzfoyPUDZbpW1plrdkY",
   authDomain: "training-system-31ee4.firebaseapp.com",
