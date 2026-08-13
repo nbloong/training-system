@@ -1,5 +1,6 @@
 (() => {
   const SLIDE_COUNT = 18;
+  const slideUrls = Array.isArray(window.GSTO_SLIDES) ? window.GSTO_SLIDES : [];
   const spriteUrl = window.GSTO_SLIDES_BASE64 ? `data:image/jpeg;base64,${window.GSTO_SLIDES_BASE64}` : '';
   const titles = [
     'Global Safety Time Out (GSTO)-SGWTE','Safety Moment','Background of Global Safety Time-Out (GSTO)',
@@ -16,16 +17,15 @@
   let role = params.get('role') === 'presenter' ? 'presenter' : 'audience';
   let room = cleanRoom(params.get('room') || localStorage.getItem('gstoRoom') || 'GSTO-SGWTE-AUG26');
   let displayName = localStorage.getItem('gstoName') || '';
+  let workerId = localStorage.getItem('gstoWorkerId') || '';
+  let company = localStorage.getItem('gstoCompany') || 'Bryan Boiler Engineering Pte Ltd';
   let currentSlide = 0;
   let db = null;
   let remoteEnabled = false;
   let roomDoc = null;
+  let participantRef = null;
   let bc = null;
-  let participantId = localStorage.getItem('gstoParticipantId');
-  if (!participantId) {
-    participantId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
-    localStorage.setItem('gstoParticipantId', participantId);
-  }
+  let attendanceRows = [];
 
   function isFirebaseConfigured() {
     const c = window.GSTO_FIREBASE_CONFIG || {};
@@ -34,17 +34,37 @@
   function cleanRoom(value) {
     return String(value || 'GSTO-SGWTE-AUG26').trim().replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 40) || 'GSTO-SGWTE-AUG26';
   }
+  function participantKey(value) {
+    const key = String(value || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '-').replace(/-+/g, '-').slice(0, 80);
+    return key || `WORKER-${Math.random().toString(36).slice(2,10).toUpperCase()}`;
+  }
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
   function showToast(message) {
     const t = $('toast'); t.textContent = message; t.classList.remove('hidden');
-    clearTimeout(showToast._timer); showToast._timer = setTimeout(() => t.classList.add('hidden'), 2200);
+    clearTimeout(showToast._timer); showToast._timer = setTimeout(() => t.classList.add('hidden'), 2400);
   }
   function setBadge(text, mode = '') { const b = $('syncBadge'); b.textContent = text; b.className = `badge ${mode}`.trim(); }
+  function applySlideImage(el, index) {
+    if (slideUrls[index]) {
+      el.style.backgroundImage = `url("${slideUrls[index]}")`;
+      el.style.backgroundPosition = 'center center';
+      el.style.backgroundSize = 'contain';
+    } else if (spriteUrl) {
+      el.style.backgroundImage = `url(${spriteUrl})`;
+      el.style.backgroundPosition = `center ${(index / (SLIDE_COUNT - 1)) * 100}%`;
+      el.style.backgroundSize = '100% 1800%';
+    }
+  }
   function renderSlide(index, source = 'local') {
     const safe = Math.max(0, Math.min(SLIDE_COUNT - 1, Number(index) || 0)); currentSlide = safe;
-    $('slideImage').style.backgroundPosition = `center ${(safe / (SLIDE_COUNT - 1)) * 100}%`; $('slideImage').setAttribute('aria-label', `GSTO briefing slide ${safe + 1}: ${titles[safe]}`);
+    applySlideImage($('slideImage'), safe);
+    $('slideImage').setAttribute('aria-label', `GSTO briefing slide ${safe + 1}: ${titles[safe]}`);
     $('slideCounter').textContent = `Slide ${safe + 1} / ${SLIDE_COUNT}`; $('slideTitle').textContent = titles[safe];
     $('prevBtn').disabled = safe === 0; $('nextBtn').disabled = safe === SLIDE_COUNT - 1;
     document.querySelectorAll('.thumb').forEach((el, i) => el.classList.toggle('active', i === safe));
+    if (role === 'audience') $('ackBtn').classList.toggle('hidden', safe !== SLIDE_COUNT - 1);
     if (source === 'remote' && role === 'audience') setBadge(remoteEnabled ? 'LIVE · synced' : 'LOCAL DEMO', remoteEnabled ? '' : 'warn');
   }
   async function publishSlide(index) {
@@ -53,14 +73,18 @@
     if (remoteEnabled && roomDoc) {
       try { await roomDoc.set(payload, { merge: true }); }
       catch (err) { console.error(err); setBadge('Sync error', 'off'); showToast('Could not update worker devices.'); }
-    } else if (bc) { bc.postMessage({ type: 'slide', ...payload, room }); localStorage.setItem(`gstoSlide:${room}`, String(currentSlide)); }
+    } else if (bc) {
+      bc.postMessage({ type: 'slide', ...payload, room }); localStorage.setItem(`gstoSlide:${room}`, String(currentSlide));
+    }
   }
   function buildThumbs() {
     const grid = $('thumbGrid'); grid.innerHTML = '';
-    Array.from({ length: SLIDE_COUNT }, (_, i) => i).forEach(i => { const btn = document.createElement('button'); btn.className='thumb'; btn.title=`${i+1}. ${titles[i]}`;
-      const preview=document.createElement('div'); preview.className='thumb-preview'; preview.style.backgroundImage=`url(${spriteUrl})`; preview.style.backgroundPosition=`center ${(i / (SLIDE_COUNT - 1)) * 100}%`;
+    Array.from({ length: SLIDE_COUNT }, (_, i) => i).forEach(i => {
+      const btn = document.createElement('button'); btn.className='thumb'; btn.title=`${i+1}. ${titles[i]}`;
+      const preview=document.createElement('div'); preview.className='thumb-preview'; applySlideImage(preview, i);
       const num=document.createElement('span'); num.textContent=i+1; btn.append(preview,num);
-      btn.addEventListener('click',()=>{publishSlide(i);$('thumbPanel').classList.add('hidden');}); grid.appendChild(btn); });
+      btn.addEventListener('click',()=>{publishSlide(i);$('thumbPanel').classList.add('hidden');}); grid.appendChild(btn);
+    });
   }
   function updateRoleUi() {
     const presenter = role === 'presenter'; $('presenterControls').classList.toggle('hidden', !presenter);
@@ -73,7 +97,10 @@
   function bindControls() {
     $('prevBtn').addEventListener('click',()=>publishSlide(currentSlide-1)); $('nextBtn').addEventListener('click',()=>publishSlide(currentSlide+1));
     $('thumbBtn').addEventListener('click',()=>$('thumbPanel').classList.toggle('hidden')); $('closeThumbBtn').addEventListener('click',()=>$('thumbPanel').classList.add('hidden'));
+    $('attendanceBtn').addEventListener('click',()=>$('attendancePanel').classList.toggle('hidden')); $('closeAttendanceBtn').addEventListener('click',()=>$('attendancePanel').classList.add('hidden'));
+    $('exportAttendanceBtn').addEventListener('click',exportAttendance);
     $('copyLinkBtn').addEventListener('click',copyWorkerLink); $('fullscreenBtn').addEventListener('click',toggleFullscreen); $('fullscreenAudience').addEventListener('click',toggleFullscreen);
+    $('ackBtn').addEventListener('click',acknowledgeBriefing);
     document.addEventListener('keydown',e=>{ if(role!=='presenter'||!$('joinModal').classList.contains('hidden'))return;
       if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' ')publishSlide(currentSlide+1); if(e.key==='ArrowLeft'||e.key==='PageUp')publishSlide(currentSlide-1); if(e.key.toLowerCase()==='f')toggleFullscreen(); });
     document.addEventListener('fullscreenchange',()=>document.body.classList.toggle('fullscreen-ui',Boolean(document.fullscreenElement)));
@@ -86,16 +113,64 @@
   }
   async function registerParticipant() {
     if (!db || role === 'presenter') return;
-    const ref = db.collection('gstoBriefings').doc(room).collection('participants').doc(participantId);
-    const heartbeat = async () => { try { await ref.set({ name: displayName || 'Worker', lastSeen: Date.now(), joinedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch(e) { console.warn(e); } };
-    await heartbeat(); setInterval(heartbeat, 30000);
+    participantRef = db.collection('gstoBriefings').doc(room).collection('participants').doc(participantKey(workerId));
+    const now = Date.now();
+    const existing = await participantRef.get();
+    if (!existing.exists) {
+      await participantRef.set({
+        name: displayName, workerId, company, joinedAt: firebase.firestore.FieldValue.serverTimestamp(), joinedAtMs: now,
+        lastSeen: now, completed: false, acknowledgedAtMs: null, room
+      });
+    } else {
+      await participantRef.set({ name: displayName, workerId, company, lastSeen: now, room }, { merge: true });
+      if (existing.data().completed) markAcknowledgedUi();
+    }
+    const heartbeat = async () => { try { await participantRef.set({ lastSeen: Date.now() }, { merge: true }); } catch(e) { console.warn(e); } };
+    setInterval(heartbeat, 30000);
+  }
+  async function acknowledgeBriefing() {
+    if (currentSlide !== SLIDE_COUNT - 1) return;
+    if (!participantRef || !db) { showToast('Attendance sync is not available on this device.'); return; }
+    try {
+      const now = Date.now();
+      await participantRef.set({ completed: true, acknowledgedAt: firebase.firestore.FieldValue.serverTimestamp(), acknowledgedAtMs: now, completedSlide: SLIDE_COUNT, lastSeen: now }, { merge: true });
+      markAcknowledgedUi(); showToast('Briefing completion recorded. Thank you.');
+    } catch (err) { console.error(err); showToast('Could not record completion. Please tell the presenter.'); }
+  }
+  function markAcknowledgedUi() {
+    const btn=$('ackBtn'); btn.textContent='✓ Briefing acknowledged'; btn.disabled=true; btn.classList.remove('hidden');
+  }
+  function toLocalTime(ms) {
+    if (!ms) return '—';
+    return new Date(ms).toLocaleString('en-SG',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+  }
+  function renderAttendance() {
+    const rows=[...attendanceRows].sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0));
+    const completed=rows.filter(r=>r.completed).length;
+    $('attendanceSummary').textContent=`${rows.length} joined · ${completed} completed`;
+    $('attendanceBody').innerHTML = rows.length ? rows.map(r=>`<tr>
+      <td><strong>${esc(r.name||'—')}</strong></td><td>${esc(r.workerId||'—')}</td><td>${esc(r.company||'—')}</td>
+      <td>${esc(toLocalTime(r.joinedAtMs))}</td><td><span class="attendance-status ${r.completed?'complete':'joined'}">${r.completed?'Completed':'Joined'}</span></td>
+    </tr>`).join('') : '<tr><td colspan="5">No attendance yet.</td></tr>';
   }
   function watchParticipants() {
     if (!db || role !== 'presenter') return;
     db.collection('gstoBriefings').doc(room).collection('participants').onSnapshot(snap => {
-      const cutoff=Date.now()-120000; let count=0; snap.forEach(d=>{if((d.data().lastSeen||0)>=cutoff)count++;});
-      $('viewerBadge').textContent=`${count} worker${count===1?'':'s'} joined`;
-    });
+      attendanceRows = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      const cutoff=Date.now()-120000; const live=attendanceRows.filter(r=>(r.lastSeen||0)>=cutoff).length;
+      $('viewerBadge').textContent=`${live} live · ${attendanceRows.length} attended`;
+      renderAttendance();
+    }, err=>{console.error(err); $('viewerBadge').textContent='Attendance error';});
+  }
+  function csvCell(value) { const s=String(value??''); return `"${s.replace(/"/g,'""')}"`; }
+  function exportAttendance() {
+    if (!attendanceRows.length) { showToast('No attendance to export yet.'); return; }
+    const rows=[['Briefing Room','Name','Worker ID','Company','Joined','Completed','Acknowledged Time']];
+    [...attendanceRows].sort((a,b)=>(a.joinedAtMs||0)-(b.joinedAtMs||0)).forEach(r=>rows.push([room,r.name||'',r.workerId||'',r.company||'',toLocalTime(r.joinedAtMs),r.completed?'Yes':'No',toLocalTime(r.acknowledgedAtMs)]));
+    const csv='\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=`GSTO_Attendance_${room}_${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    showToast('Attendance CSV exported.');
   }
   async function setupFirebase() {
     try {
@@ -108,21 +183,27 @@
     } catch(err) { console.error(err); setupLocalDemo(); showToast('Online sync unavailable — running local demo mode.'); }
   }
   function showJoinIfNeeded() {
-    const hasRoomInUrl=Boolean(params.get('room')); if(role==='presenter')return false; if(displayName&&hasRoomInUrl)return false;
-    $('joinModal').classList.remove('hidden'); $('nameInput').value=displayName; $('roomInput').value=room; return true;
+    const hasRoomInUrl=Boolean(params.get('room')); if(role==='presenter')return false;
+    if(displayName && workerId && hasRoomInUrl) return false;
+    $('joinModal').classList.remove('hidden'); $('nameInput').value=displayName; $('workerIdInput').value=workerId; $('companyInput').value=company; $('roomInput').value=room; return true;
   }
   function bindJoin() {
-    $('joinBtn').addEventListener('click',async()=>{ displayName=$('nameInput').value.trim()||'Worker'; room=cleanRoom($('roomInput').value);
-      localStorage.setItem('gstoName',displayName); localStorage.setItem('gstoRoom',room); const url=new URL(location.href); url.searchParams.set('room',room); url.searchParams.delete('role'); history.replaceState(null,'',url); $('joinModal').classList.add('hidden'); await startSync(); });
+    $('joinBtn').addEventListener('click',async()=>{
+      const name=$('nameInput').value.trim(), id=$('workerIdInput').value.trim(), comp=$('companyInput').value.trim();
+      if(!name){showToast('Please enter your full name.');$('nameInput').focus();return;}
+      if(!id){showToast('Please enter your Worker ID / Staff ID.');$('workerIdInput').focus();return;}
+      displayName=name; workerId=id; company=comp||'N.A.'; room=cleanRoom($('roomInput').value);
+      localStorage.setItem('gstoName',displayName); localStorage.setItem('gstoWorkerId',workerId); localStorage.setItem('gstoCompany',company); localStorage.setItem('gstoRoom',room);
+      const url=new URL(location.href); url.searchParams.set('room',room); url.searchParams.delete('role'); history.replaceState(null,'',url); $('joinModal').classList.add('hidden'); await startSync();
+    });
   }
   async function startSync() { if(startSync.started)return; startSync.started=true; if(isFirebaseConfigured())await setupFirebase();else setupLocalDemo(); }
   async function init() {
-    $('slideImage').style.backgroundImage=`url(${spriteUrl})`;
     buildThumbs(); bindControls(); bindJoin(); updateRoleUi(); renderSlide(0);
-    const pre = new Image();
-    pre.onload = () => $('loading').classList.add('hidden');
-    pre.onerror = () => { $('loading').textContent = 'Could not load presentation slides.'; };
-    pre.src = spriteUrl;
+    const first = slideUrls[0] || spriteUrl;
+    if (first) {
+      const pre = new Image(); pre.onload = () => $('loading').classList.add('hidden'); pre.onerror = () => { $('loading').textContent = 'Could not load presentation slides.'; }; pre.src = first;
+    } else $('loading').textContent='Presentation slide images are not configured yet.';
     if (!showJoinIfNeeded()) await startSync();
   }
   init();
