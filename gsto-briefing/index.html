@@ -20,7 +20,7 @@
       <div class="status-row">
         <span id="syncBadge" class="badge">Connecting…</span>
         <span id="roomBadge" class="badge subtle">Room —</span>
-        <span id="viewerBadge" class="badge subtle hidden">0 viewers</span>
+        <span id="viewerBadge" class="badge subtle hidden">0 workers</span>
       </div>
     </header>
 
@@ -29,10 +29,7 @@
         <div id="slideImage" role="img" aria-label="GSTO briefing slide"></div>
         <div id="loading" class="loading">Loading presentation…</div>
       </section>
-
-      <div id="portraitHint" class="portrait-hint">
-        Rotate your phone to landscape for a larger slide view.
-      </div>
+      <div id="portraitHint" class="portrait-hint">Rotate your phone to landscape for a larger slide view.</div>
     </main>
 
     <footer class="controlbar">
@@ -44,12 +41,14 @@
       <div id="audienceControls" class="audience-controls">
         <span class="live-dot"></span>
         <span>Following presenter</span>
+        <button id="ackBtn" class="btn success hidden">Acknowledge briefing</button>
         <button id="fullscreenAudience" class="btn secondary">Full screen</button>
       </div>
 
       <div id="presenterControls" class="presenter-controls hidden">
         <button id="prevBtn" class="btn secondary" aria-label="Previous slide">◀ Previous</button>
         <button id="thumbBtn" class="btn secondary">Slides</button>
+        <button id="attendanceBtn" class="btn secondary">Attendance</button>
         <button id="copyLinkBtn" class="btn secondary">Copy worker link</button>
         <button id="fullscreenBtn" class="btn secondary">Full screen</button>
         <button id="nextBtn" class="btn primary" aria-label="Next slide">Next ▶</button>
@@ -64,20 +63,50 @@
       <div id="thumbGrid" class="thumb-grid"></div>
     </aside>
 
+    <aside id="attendancePanel" class="attendance-panel hidden" aria-label="Attendance register">
+      <div class="attendance-head">
+        <div>
+          <strong>GSTO Attendance</strong>
+          <span id="attendanceSummary">0 joined · 0 completed</span>
+        </div>
+        <button id="closeAttendanceBtn" class="icon-btn" aria-label="Close attendance">×</button>
+      </div>
+      <div class="attendance-actions">
+        <button id="exportAttendanceBtn" class="btn secondary">Export CSV</button>
+        <span class="tiny-left">Completion means the worker acknowledged the briefing at the final slide.</span>
+      </div>
+      <div class="attendance-table-wrap">
+        <table class="attendance-table">
+          <thead>
+            <tr><th>Name</th><th>Worker ID</th><th>Company</th><th>Joined</th><th>Status</th></tr>
+          </thead>
+          <tbody id="attendanceBody"><tr><td colspan="5">No attendance yet.</td></tr></tbody>
+        </table>
+      </div>
+    </aside>
+
     <div id="joinModal" class="modal hidden">
       <div class="modal-card">
         <h1>Join GSTO briefing</h1>
-        <p id="joinHelp">Enter your name / worker ID to join this live GSTO briefing.</p>
+        <p id="joinHelp">Enter your details once. Your attendance will be recorded when you join.</p>
         <label>
-          Your name / worker ID
+          Full name
           <input id="nameInput" maxlength="60" autocomplete="name" placeholder="e.g. Tan Wei Ming" />
+        </label>
+        <label>
+          Worker ID / Staff ID
+          <input id="workerIdInput" maxlength="30" autocomplete="off" placeholder="e.g. BBE-024" />
+        </label>
+        <label>
+          Company
+          <input id="companyInput" maxlength="80" autocomplete="organization" value="Bryan Boiler Engineering Pte Ltd" />
         </label>
         <label id="roomInputWrap">
           Briefing room
-          <input id="roomInput" maxlength="30" value="GSTO-AUG26" />
+          <input id="roomInput" maxlength="30" value="GSTO-SGWTE-AUG26" />
         </label>
-        <button id="joinBtn" class="btn primary wide">Join briefing</button>
-        <p class="tiny">Workers automatically follow the slide selected by the presenter.</p>
+        <button id="joinBtn" class="btn primary wide">Join & record attendance</button>
+        <p class="tiny">Workers automatically follow the slide selected by the presenter. On the final slide, tap “Acknowledge briefing” to mark completion.</p>
       </div>
     </div>
 
