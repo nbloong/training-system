@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>GSTO 2026 – SGWTE Worker Briefing</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">GSTO</div>
+        <div class="brand-text">
+          <strong>SGWTE Worker Briefing</strong>
+          <span>Global Safety Time-Out · Aug 2026</span>
+        </div>
+      </div>
+      <div class="status-row">
+        <span id="syncBadge" class="badge">Connecting…</span>
+        <span id="roomBadge" class="badge subtle">Room —</span>
+        <span id="viewerBadge" class="badge subtle hidden">0 viewers</span>
+      </div>
+    </header>
+
+    <main class="stage-wrap">
+      <section class="stage" aria-live="polite">
+        <div id="slideImage" role="img" aria-label="GSTO briefing slide"></div>
+        <div id="loading" class="loading">Loading presentation…</div>
+      </section>
+
+      <div id="portraitHint" class="portrait-hint">
+        Rotate your phone to landscape for a larger slide view.
+      </div>
+    </main>
+
+    <footer class="controlbar">
+      <div class="slide-info">
+        <span id="slideCounter">Slide 1 / 18</span>
+        <span id="slideTitle">Global Safety Time Out (GSTO)-SGWTE</span>
+      </div>
+
+      <div id="audienceControls" class="audience-controls">
+        <span class="live-dot"></span>
+        <span>Following presenter</span>
+        <button id="fullscreenAudience" class="btn secondary">Full screen</button>
+      </div>
+
+      <div id="presenterControls" class="presenter-controls hidden">
+        <button id="prevBtn" class="btn secondary" aria-label="Previous slide">◀ Previous</button>
+        <button id="thumbBtn" class="btn secondary">Slides</button>
+        <button id="copyLinkBtn" class="btn secondary">Copy worker link</button>
+        <button id="fullscreenBtn" class="btn secondary">Full screen</button>
+        <button id="nextBtn" class="btn primary" aria-label="Next slide">Next ▶</button>
+      </div>
+    </footer>
+
+    <aside id="thumbPanel" class="thumb-panel hidden" aria-label="Slide navigator">
+      <div class="thumb-head">
+        <strong>Presentation slides</strong>
+        <button id="closeThumbBtn" class="icon-btn" aria-label="Close slide navigator">×</button>
+      </div>
+      <div id="thumbGrid" class="thumb-grid"></div>
+    </aside>
+
+    <div id="joinModal" class="modal hidden">
+      <div class="modal-card">
+        <h1>Join GSTO briefing</h1>
+        <p id="joinHelp">Enter your name / worker ID to join this live GSTO briefing.</p>
+        <label>
+          Your name / worker ID
+          <input id="nameInput" maxlength="60" autocomplete="name" placeholder="e.g. Tan Wei Ming" />
+        </label>
+        <label id="roomInputWrap">
+          Briefing room
+          <input id="roomInput" maxlength="30" value="GSTO-AUG26" />
+        </label>
+        <button id="joinBtn" class="btn primary wide">Join briefing</button>
+        <p class="tiny">Workers automatically follow the slide selected by the presenter.</p>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="slides-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
